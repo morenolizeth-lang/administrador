@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.inventariolt"
+    namespace = "com.example.Administrador"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.inventariolt"
+        applicationId = "com.example.Administrador"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -64,7 +64,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.0")
 
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    implementation(platform("androidx.compose:compose-bom:2024.11.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

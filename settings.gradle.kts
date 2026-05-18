@@ -23,6 +23,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "InventarioLT"
+rootProject.name = "Admin"
 include(":app")
  
