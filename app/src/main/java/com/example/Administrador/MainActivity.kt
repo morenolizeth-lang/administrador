@@ -16,7 +16,6 @@ import androidx.navigation.navArgument
 import com.example.Administrador.screen.administrador.InventarioHomeScreen
 import com.example.Administrador.screen.administrador.ListaCategoriasScreen
 import com.example.Administrador.screen.login.LoginScreen
-import com.example.Administrador.screen.login.RegistroScreen
 import com.example.Administrador.screen.perfil.ActualizarPerfilScreen
 import com.example.Administrador.screen.perfil.PerfilScreen
 import com.example.Administrador.screen.administrador.ListaUsuariosScreen
@@ -53,11 +52,6 @@ fun AppNavigation() {
         // Pantalla de Login
         composable("login") {
             LoginScreen(navController = navController)
-        }
-
-        // Pantalla de Registro
-        composable("registro") {
-            RegistroScreen(navController = navController)
         }
 
         // Pantalla de Inventario (Home - Panel de Administrador)

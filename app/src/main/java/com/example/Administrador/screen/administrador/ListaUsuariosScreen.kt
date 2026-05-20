@@ -2,6 +2,7 @@ package com.example.Administrador.screen.administrador
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,11 +16,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -27,10 +32,7 @@ import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import com.example.Administrador.model.login.UsuarioResponseDTO
 import com.example.Administrador.ui.theme.*
-import com.example.Administrador.viewModel.DeleteState
-import com.example.Administrador.viewModel.PerfilState
-import com.example.Administrador.viewModel.UsuariosState
-import com.example.Administrador.viewModel.UsuarioViewModel
+import com.example.Administrador.viewModel.*
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,22 +40,38 @@ import kotlinx.coroutines.launch
 fun ListaUsuariosScreen(
     navController: NavController,
     adminId: Long,
-    viewModel: UsuarioViewModel = viewModel()
+    viewModel: UsuarioViewModel = viewModel(),
+    tiendaViewModel: TiendaViewModel = viewModel()
 ) {
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
     val usuariosState by viewModel.usuariosState.collectAsState()
     val deleteState by viewModel.deleteState.collectAsState()
     val perfilState by viewModel.perfilState.collectAsState()
+    val tiendasState by tiendaViewModel.tiendasState.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var userToDelete by remember { mutableStateOf<UsuarioResponseDTO?>(null) }
+    var userToEditStore by remember { mutableStateOf<UsuarioResponseDTO?>(null) }
+
+    // Estado para la tienda seleccionada en el diálogo
+    var selectedTiendaId by remember { mutableStateOf<Long?>(null) }
+
     var showExitDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+
+    // Inicializar estados cuando se abre el diálogo
+    LaunchedEffect(userToEditStore) {
+        if (userToEditStore != null) {
+            selectedTiendaId = userToEditStore?.tiendaId
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.cargarUsuarios()
         viewModel.cargarPerfil(adminId)
+        tiendaViewModel.cargarTiendas()
     }
 
     // Manejo de eliminación exitosa
@@ -65,6 +83,19 @@ fun ListaUsuariosScreen(
         } else if (deleteState is DeleteState.Error) {
             snackbarHostState.showSnackbar((deleteState as DeleteState.Error).message)
             viewModel.resetDeleteState()
+        }
+    }
+
+    // Manejo de actualización exitosa (para cambio de tienda)
+    LaunchedEffect(updateState) {
+        if (updateState is UpdatePerfilState.Success) {
+            snackbarHostState.showSnackbar("Tienda reasignada correctamente")
+            viewModel.resetUpdateState()
+            viewModel.cargarUsuarios()
+            userToEditStore = null
+        } else if (updateState is UpdatePerfilState.Error) {
+            snackbarHostState.showSnackbar((updateState as UpdatePerfilState.Error).message)
+            viewModel.resetUpdateState()
         }
     }
 
@@ -136,6 +167,76 @@ fun ListaUsuariosScreen(
             },
             dismissButton = {
                 TextButton(onClick = { userToDelete = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // Diálogo para Cambiar Tienda
+    if (userToEditStore != null) {
+        AlertDialog(
+            onDismissRequest = { userToEditStore = null },
+            title = { Text("Asignar Tienda", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Selecciona una tienda para ${userToEditStore?.nombre}:")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    when (tiendasState) {
+                        is TiendasState.Loading -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                        is TiendasState.Success -> {
+                            val tiendas = (tiendasState as TiendasState.Success).tiendas
+                            LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { selectedTiendaId = null }
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = selectedTiendaId == null,
+                                            onClick = { selectedTiendaId = null }
+                                        )
+                                        Text("Sin tienda", modifier = Modifier.padding(start = 8.dp))
+                                    }
+                                }
+                                items(tiendas) { tienda ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { selectedTiendaId = tienda.idTienda }
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = selectedTiendaId == tienda.idTienda,
+                                            onClick = { selectedTiendaId = tienda.idTienda }
+                                        )
+                                        Text(tienda.nombre, modifier = Modifier.padding(start = 8.dp))
+                                    }
+                                }
+                            }
+                        }
+                        is TiendasState.Error -> Text("Error al cargar tiendas", color = Color.Red)
+                        else -> {}
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        userToEditStore?.let {
+                            viewModel.cambiarTiendaUsuario(it, selectedTiendaId)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AquamarinePrimary)
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { userToEditStore = null }) { Text("Cancelar") }
             }
         )
     }
@@ -212,7 +313,12 @@ fun ListaUsuariosScreen(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = if (usuario.rol == "EMPLEADO") "ADMINISTRADOR" else usuario.rol,
+                                    text = when (usuario.rol) {
+                                        "ADMIN" -> "ADMINISTRADOR"
+                                        "EMPLEADO" -> "ADMIN TIENDA"
+                                        "CONSULTA" -> "EMPLEADO"
+                                        else -> usuario.rol
+                                    },
                                     color = Color.White,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
@@ -358,7 +464,7 @@ fun ListaUsuariosScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Buscar por nombre o tienda...") },
+                        placeholder = { Text("Buscar por nombre, rol...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AquamarinePrimary) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -405,9 +511,16 @@ fun ListaUsuariosScreen(
                     }
                     is UsuariosState.Success -> {
                         val allUsers = (usuariosState as UsuariosState.Success).usuarios
-                        val filteredUsers = allUsers.filter {
-                            it.nombre.contains(searchQuery, ignoreCase = true) ||
-                                    (it.tiendaNombre?.contains(searchQuery, ignoreCase = true) ?: false)
+                        val filteredUsers = allUsers.filter { usuario ->
+                            val rolMostrado = when (usuario.rol) {
+                                "ADMIN" -> "ADMINISTRADOR"
+                                "EMPLEADO" -> "ADMIN TIENDA"
+                                "CONSULTA" -> "EMPLEADO"
+                                else -> usuario.rol
+                            }
+                            usuario.nombre.contains(searchQuery, ignoreCase = true) ||
+                                    (usuario.tiendaNombre?.contains(searchQuery, ignoreCase = true) ?: false) ||
+                                    rolMostrado.contains(searchQuery, ignoreCase = true)
                         }.filter { it.idUsuario != adminId } // No mostrarse a sí mismo
 
                         if (filteredUsers.isEmpty()) {
@@ -436,7 +549,15 @@ fun ListaUsuariosScreen(
                                 items(filteredUsers) { usuario ->
                                     UsuarioItem(
                                         usuario = usuario,
-                                        onDelete = { userToDelete = usuario }
+                                        onDelete = { userToDelete = usuario },
+                                        onEditStore = { userToEditStore = usuario },
+                                        onToggleStatus = { nuevoEstado ->
+                                            viewModel.cambiarEstadoUsuario(usuario, nuevoEstado)
+                                        },
+                                        onToggleRole = {
+                                            val nuevoRol = if (usuario.rol == "EMPLEADO") "CONSULTA" else "EMPLEADO"
+                                            viewModel.cambiarRolUsuario(usuario, nuevoRol)
+                                        }
                                     )
                                 }
                             }
@@ -450,7 +571,13 @@ fun ListaUsuariosScreen(
 }
 
 @Composable
-fun UsuarioItem(usuario: UsuarioResponseDTO, onDelete: () -> Unit) {
+fun UsuarioItem(
+    usuario: UsuarioResponseDTO,
+    onDelete: () -> Unit,
+    onEditStore: () -> Unit,
+    onToggleStatus: (Boolean) -> Unit,
+    onToggleRole: () -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -484,7 +611,34 @@ fun UsuarioItem(usuario: UsuarioResponseDTO, onDelete: () -> Unit) {
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(usuario.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = AquamarineDark)
-                    Text(usuario.rol, fontSize = 12.sp, color = AquamarinePrimary, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = when (usuario.rol) {
+                            "ADMIN" -> "ADMINISTRADOR"
+                            "EMPLEADO" -> "ADMIN TIENDA"
+                            "CONSULTA" -> "EMPLEADO"
+                            else -> usuario.rol
+                        },
+                        fontSize = 12.sp,
+                        color = AquamarinePrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Switch para el estado (Activo/Inactivo)
+                Switch(
+                    checked = usuario.estado,
+                    onCheckedChange = onToggleStatus,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = AquamarinePrimary,
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color.LightGray
+                    ),
+                    modifier = Modifier.scale(0.8f)
+                )
+
+                IconButton(onClick = onToggleRole) {
+                    Icon(Icons.Default.SwapHoriz, contentDescription = "Cambiar Rol", tint = AquamarinePrimary)
                 }
 
                 IconButton(onClick = onDelete) {
@@ -513,11 +667,23 @@ fun UsuarioItem(usuario: UsuarioResponseDTO, onDelete: () -> Unit) {
                     Spacer(modifier = Modifier.height(12.dp))
 
                     DetailRow(icon = Icons.Default.Email, label = "Correo", value = usuario.correo)
-                    DetailRow(
-                        icon = Icons.Default.Store,
-                        label = "Tienda",
-                        value = usuario.tiendaNombre ?: "Sin tienda asignada"
-                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        DetailRow(
+                            icon = Icons.Default.Store,
+                            label = "Tienda",
+                            value = usuario.tiendaNombre ?: "Sin tienda asignada"
+                        )
+                        
+                        TextButton(onClick = onEditStore) {
+                            Text(if (usuario.tiendaId == null) "Asignar" else "Cambiar", fontSize = 12.sp)
+                        }
+                    }
+
                     DetailRow(
                         icon = Icons.Default.Badge,
                         label = "Estado",

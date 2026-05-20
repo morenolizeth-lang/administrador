@@ -40,7 +40,7 @@ import com.example.Administrador.ui.theme.*
 
 /**
  * Pantalla de login para el sistema de inventario
- * Solo permite acceso a usuarios con rol CONSULTA
+ * Solo permite acceso a usuarios con rol ADMIN
  */
 @Composable
 fun LoginScreen(
@@ -85,8 +85,8 @@ fun LoginScreen(
                 isLoading = false
                 val user = (loginState as LoginState.Success).user
 
-                // Verificar si el usuario tiene rol CONSULTA
-                if (user.rol == "CONSULTA") {
+                // Verificar si el usuario tiene rol ADMIN
+                if (user.rol == "ADMIN") {
                     // Guardar datos del usuario
                     val prefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
                     prefs.edit().putString("user_password", password).apply()
@@ -325,57 +325,9 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Línea divisoria con "o"
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(
-                            modifier = Modifier.weight(1f),
-                            color = Color(0xFFE0E0E0),
-                            thickness = 1.dp
-                        )
-                        Text(
-                            text = " O ",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF9E9E9E),
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.weight(1f),
-                            color = Color(0xFFE0E0E0),
-                            thickness = 1.dp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Sección de registro
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "¿No tienes una cuenta? ",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF666666)
-                        )
-                        Text(
-                            text = "Regístrate gratis",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AquamarinePrimary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable {
-                                authViewModel.resetStates()
-                                navController.navigate("registro")
-                            }
-                        )
-                    }
-
                     Spacer(modifier = Modifier.height(8.dp))
+
+                    // Versión del sistema
 
                     // Versión del sistema
                     Text(

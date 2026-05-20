@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.example.Administrador.viewModel.PerfilState
 import com.example.Administrador.viewModel.UpdatePerfilState
 import com.example.Administrador.viewModel.UsuarioViewModel
@@ -55,15 +56,8 @@ fun ActualizarPerfilScreen(
     val context = LocalContext.current
     val perfilState by viewModel.perfilState.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
-    val prefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-    val savedPassword = remember { prefs.getString("user_password", "") ?: "" }
     var nombre by remember { mutableStateOf("") }
     var correo by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var isPasswordVisible by remember { mutableStateOf(false) }
-    var isConfirmPasswordVisible by remember { mutableStateOf(false) }
-    var cambiarPassword by remember { mutableStateOf(false) }
 
     // Cargar datos iniciales
     LaunchedEffect(userId) {
@@ -85,7 +79,9 @@ fun ActualizarPerfilScreen(
             is UpdatePerfilState.Success -> {
                 Toast.makeText(context, "Perfil actualizado con éxito", Toast.LENGTH_SHORT).show()
                 viewModel.resetUpdateState()
-                navController.popBackStack()
+                // Ya no cerramos la pantalla automáticamente para permitir seguir editando
+                // o ver el cambio de la foto.
+                viewModel.cargarPerfil(userId) 
             }
             is UpdatePerfilState.Error -> {
                 Toast.makeText(
@@ -191,35 +187,63 @@ fun ActualizarPerfilScreen(
                                 }
                             }
 
-                            // FOTO SUPERPUESTA
-                            Surface(
+                            // FOTO SUPERPUESTA CON CLICK PARA EDITAR
+                            Box(
                                 modifier = Modifier
                                     .size(110.dp)
-                                    .offset(y = 55.dp),
-                                shape = CircleShape,
-                                color = Color.White,
-                                shadowElevation = 8.dp
+                                    .offset(y = 55.dp)
+                                    .clip(CircleShape)
+                                    .clickable { launcher.launch("image/*") },
+                                contentAlignment = Alignment.Center
                             ) {
-                                if (usuario.fotoPerfil == null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color(0xFFE0E0E0)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Person,
-                                            null,
-                                            modifier = Modifier.size(60.dp),
-                                            tint = Color.Gray
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = CircleShape,
+                                    color = Color.White,
+                                    shadowElevation = 8.dp
+                                ) {
+                                    if (usuario.fotoPerfil == null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color(0xFFE0E0E0)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                null,
+                                                modifier = Modifier.size(60.dp),
+                                                tint = Color.Gray
+                                            )
+                                        }
+                                    } else {
+                                        SubcomposeAsyncImage(
+                                            model = ImageRequest.Builder(LocalContext.current)
+                                                .data(usuario.fotoPerfil)
+                                                .crossfade(true)
+                                                .diskCacheKey(System.currentTimeMillis().toString()) // Forzar refresco
+                                                .build(),
+                                            contentDescription = "Foto de perfil",
+                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                            contentScale = ContentScale.Crop
                                         )
                                     }
-                                } else {
-                                    SubcomposeAsyncImage(
-                                        model = usuario.fotoPerfil,
-                                        contentDescription = "Foto de perfil",
-                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                        contentScale = ContentScale.Crop
+                                }
+                                
+                                // Icono de edición (Lápiz)
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(32.dp)
+                                        .background(AquamarinePrimary, CircleShape)
+                                        .padding(4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Cambiar foto",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
@@ -269,89 +293,10 @@ fun ActualizarPerfilScreen(
                                 )
                             )
 
-                            // Checkbox para habilitar cambio de contraseña
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Checkbox(
-                                    checked = cambiarPassword,
-                                    onCheckedChange = { cambiarPassword = it },
-                                    colors = CheckboxDefaults.colors(checkedColor = AquamarinePrimary)
-                                )
-                                Text(
-                                    text = "Cambiar contraseña",
-                                    fontSize = 14.sp,
-                                    color = AquamarineDark,
-                                    modifier = Modifier.clickable { cambiarPassword = !cambiarPassword }
-                                )
-                            }
-
-                            // Campos de contraseña solo si se seleccionó el checkbox
-                            if (cambiarPassword) {
-                                OutlinedTextField(
-                                    value = password,
-                                    onValueChange = { password = it },
-                                    label = { Text("Nueva Contraseña") },
-                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    trailingIcon = {
-                                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                                            Icon(
-                                                imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                contentDescription = "Mostrar contraseña"
-                                            )
-                                        }
-                                    },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = AquamarinePrimary,
-                                        focusedLabelColor = AquamarinePrimary,
-                                        focusedLeadingIconColor = AquamarinePrimary
-                                    )
-                                )
-
-                                OutlinedTextField(
-                                    value = confirmPassword,
-                                    onValueChange = { confirmPassword = it },
-                                    label = { Text("Verificar Contraseña") },
-                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    visualTransformation = if (isConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    trailingIcon = {
-                                        IconButton(onClick = { isConfirmPasswordVisible = !isConfirmPasswordVisible }) {
-                                            Icon(
-                                                imageVector = if (isConfirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                contentDescription = "Mostrar contraseña"
-                                            )
-                                        }
-                                    },
-                                    isError = password != confirmPassword && confirmPassword.isNotEmpty(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = AquamarinePrimary,
-                                        focusedLabelColor = AquamarinePrimary,
-                                        focusedLeadingIconColor = AquamarinePrimary
-                                    )
-                                )
-
-                                if (password != confirmPassword && confirmPassword.isNotEmpty()) {
-                                    Text(
-                                        text = "Las contraseñas no coinciden",
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    )
-                                }
-                            }
-
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // Validación para guardar
-                            val canSave = nombre.isNotEmpty() &&
-                                    correo.isNotEmpty() &&
-                                    (!cambiarPassword || (password.isNotEmpty() && confirmPassword.isNotEmpty() && password == confirmPassword))
+                            val canSave = nombre.isNotEmpty() && correo.isNotEmpty()
 
                             Button(
                                 onClick = {
@@ -361,8 +306,7 @@ fun ActualizarPerfilScreen(
                                         correo = correo,
                                         rol = usuario.rol,
                                         estado = usuario.estado,
-                                        tiendaId = usuario.tiendaId,
-                                        nuevaPassword = if (cambiarPassword && password.isNotBlank()) password else savedPassword
+                                        tiendaId = usuario.tiendaId
                                     )
                                 },
                                 modifier = Modifier
@@ -395,34 +339,4 @@ fun ActualizarPerfilScreen(
     }
 }
 
-fun uriToFile(context: android.content.Context, uri: Uri): File? {
-    val contentResolver = context.contentResolver
-    val fileName = getFileName(context, uri)
-    val tempFile = File(context.cacheDir, fileName)
-
-    try {
-        contentResolver.openInputStream(uri)?.use { inputStream ->
-            FileOutputStream(tempFile).use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-        }
-        return tempFile
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return null
-    }
-}
-
-fun getFileName(context: android.content.Context, uri: Uri): String {
-    var name = "temp_image"
-    val cursor = context.contentResolver.query(uri, null, null, null, null)
-    cursor?.use {
-        if (it.moveToFirst()) {
-            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (nameIndex != -1) {
-                name = it.getString(nameIndex)
-            }
-        }
-    }
-    return name
-}
+// Se eliminaron las funciones locales uriToFile y getFileName para usar las de utils.FileUtils

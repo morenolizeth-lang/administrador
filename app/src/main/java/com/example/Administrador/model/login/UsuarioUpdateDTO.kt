@@ -1,4 +1,3 @@
-// UsuarioUpdateDTO.kt
 package com.example.Administrador.model.login
 
 data class UsuarioUpdateDTO(
@@ -6,6 +5,5 @@ data class UsuarioUpdateDTO(
     val correo: String,
     val rol: String,
     val estado: Boolean,
-    val tiendaId: Long?,
-    val password: String  // ← Opcional, solo se envía si se cambia
+    val tiendaId: Long?
 )

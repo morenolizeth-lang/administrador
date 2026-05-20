@@ -177,7 +177,12 @@ fun PerfilScreen(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = if (usuario.rol == "CONSULTA") "ADMINISTRADOR" else usuario.rol,
+                                    text = when (usuario.rol) {
+                                        "ADMIN" -> "ADMINISTRADOR"
+                                        "EMPLEADO" -> "ADMIN TIENDA"
+                                        "CONSULTA" -> "EMPLEADO"
+                                        else -> usuario.rol
+                                    },
                                     color = Color.White,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
@@ -426,13 +431,18 @@ fun PerfilScreen(
                                 InfoCard(
                                     icon = Icons.Default.Badge,
                                     label = "Rol del usuario",
-                                    value = if (usuario.rol == "CONSULTA") "Administrador" else usuario.rol
+                                    value = when (usuario.rol) {
+                                        "ADMIN" -> "ADMINISTRADOR"
+                                        "EMPLEADO" -> "ADMIN TIENDA"
+                                        "CONSULTA" -> "EMPLEADO"
+                                        else -> usuario.rol
+                                    }
                                 )
 
                                 Spacer(modifier = Modifier.height(24.dp))
 
                                 // Sección de Cargo / Tienda
-                                if (usuario.rol == "CONSULTA") {
+                                if (usuario.rol == "ADMIN") {
                                     Card(
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = CardDefaults.cardColors(containerColor = AquamarineLight),

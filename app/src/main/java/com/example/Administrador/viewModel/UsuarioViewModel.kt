@@ -86,15 +86,14 @@ class UsuarioViewModel : ViewModel() {
         _deleteState.value = DeleteState.Idle
     }
 
-    // ✅ Método actualizado para usar UsuarioUpdateDTO
+    // ✅ Método para actualizar perfil (general)
     fun actualizarPerfil(
         id: Long,
         nombre: String,
         correo: String,
         rol: String,
         estado: Boolean,
-        tiendaId: Long?,
-        nuevaPassword: String  // ← Ya no es nullable
+        tiendaId: Long?
     ) {
         viewModelScope.launch {
             _updateState.value = UpdatePerfilState.Loading
@@ -103,8 +102,7 @@ class UsuarioViewModel : ViewModel() {
                 correo = correo,
                 rol = rol,
                 estado = estado,
-                tiendaId = tiendaId,
-                password = nuevaPassword
+                tiendaId = tiendaId
             )
             val result = usuarioRepository.updateUsuario(id, request)
             result.onSuccess { usuario ->
@@ -116,13 +114,81 @@ class UsuarioViewModel : ViewModel() {
         }
     }
 
+    fun cambiarTiendaUsuario(usuario: UsuarioResponseDTO, nuevaTiendaId: Long?) {
+        viewModelScope.launch {
+            _updateState.value = UpdatePerfilState.Loading
+            
+            val request = UsuarioUpdateDTO(
+                nombre = usuario.nombre,
+                correo = usuario.correo,
+                rol = usuario.rol, 
+                estado = usuario.estado,
+                tiendaId = nuevaTiendaId
+            )
+            
+            val result = usuarioRepository.updateUsuario(usuario.idUsuario, request)
+            result.onSuccess { updatedUser ->
+                _updateState.value = UpdatePerfilState.Success(updatedUser)
+                cargarUsuarios()
+            }.onFailure { error ->
+                _updateState.value = UpdatePerfilState.Error(error.message ?: "Error al cambiar tienda")
+            }
+        }
+    }
+
+    fun cambiarEstadoUsuario(usuario: UsuarioResponseDTO, nuevoEstado: Boolean) {
+        viewModelScope.launch {
+            _updateState.value = UpdatePerfilState.Loading
+            
+            val request = UsuarioUpdateDTO(
+                nombre = usuario.nombre,
+                correo = usuario.correo,
+                rol = usuario.rol,
+                estado = nuevoEstado,
+                tiendaId = usuario.tiendaId
+            )
+            
+            val result = usuarioRepository.updateUsuario(usuario.idUsuario, request)
+            result.onSuccess { updatedUser ->
+                _updateState.value = UpdatePerfilState.Success(updatedUser)
+                cargarUsuarios()
+            }.onFailure { error ->
+                _updateState.value = UpdatePerfilState.Error(error.message ?: "Error al cambiar estado")
+            }
+        }
+    }
+
+    fun cambiarRolUsuario(usuario: UsuarioResponseDTO, nuevoRol: String) {
+        viewModelScope.launch {
+            _updateState.value = UpdatePerfilState.Loading
+            
+            val request = UsuarioUpdateDTO(
+                nombre = usuario.nombre,
+                correo = usuario.correo,
+                rol = nuevoRol,
+                estado = usuario.estado,
+                tiendaId = usuario.tiendaId
+            )
+            
+            val result = usuarioRepository.updateUsuario(usuario.idUsuario, request)
+            result.onSuccess { updatedUser ->
+                _updateState.value = UpdatePerfilState.Success(updatedUser)
+                cargarUsuarios()
+            }.onFailure { error ->
+                _updateState.value = UpdatePerfilState.Error(error.message ?: "Error al cambiar rol")
+            }
+        }
+    }
+
     fun subirFotoPerfil(id: Long, file: MultipartBody.Part) {
         viewModelScope.launch {
             _updateState.value = UpdatePerfilState.Loading
             val result = usuarioRepository.uploadFotoPerfil(id, file)
             result.onSuccess { usuario ->
                 _updateState.value = UpdatePerfilState.Success(usuario)
+                // Forzamos la recarga de los datos del usuario para ver la nueva foto
                 cargarPerfil(id)
+                cargarUsuarios() // También refrescamos la lista general
             }.onFailure { error ->
                 _updateState.value = UpdatePerfilState.Error(error.message ?: "Error al subir imagen")
             }
